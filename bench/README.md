@@ -19,6 +19,12 @@ has a delay of 2 x D. The interface `gw0` has no impairment, so a capture
 timestamp on `gw0` is the time at which the gateway sends or receives a
 datagram.
 
+The four interfaces have permanent neighbour entries. Without them, the
+hosts use ARP, and the ARP messages cross the delayed link: the first
+datagram after an address resolution then has an extra delay of 2 x D
+(measured: 400 ms and not 200 ms for D = 100 ms). With permanent entries,
+no ARP exchange occurs during an experiment.
+
 ## Requirements
 
 - Linux with root rights, `iproute2`, the `sch_netem` kernel module and

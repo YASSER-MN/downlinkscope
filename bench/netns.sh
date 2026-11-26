@@ -113,6 +113,30 @@ check_no_conflict() {
     done
 }
 
+# Print the hardware (MAC) address of an interface. $1 = namespace, or "" for
+# the root namespace. $2 = interface.
+mac_of() {
+    ip ${1:+-n "$1"} -o link show dev "$2" |
+        awk '{ for (i = 1; i < NF; i++) if ($i == "link/ether") print $(i + 1) }'
+}
+
+# Write permanent neighbour entries on the four interfaces.
+#
+# Without them, each host resolves the address of its neighbour with ARP.
+# The ARP messages cross the netem link, so the first datagram after a
+# resolution has an extra delay of 2 x D. With permanent entries, no ARP
+# exchange occurs, and each datagram has a delay of exactly D per direction.
+set_static_neighbours() {
+    ip -n "${NS_GW}" neigh replace "${IP_WAN_GW}" lladdr "$(mac_of "${NS_WAN}" "${IF_WAN_GW}")" \
+        dev "${IF_GW}" nud permanent
+    ip -n "${NS_WAN}" neigh replace "${IP_GW}" lladdr "$(mac_of "${NS_GW}" "${IF_GW}")" \
+        dev "${IF_WAN_GW}" nud permanent
+    ip -n "${NS_WAN}" neigh replace "${IP_SRV}" lladdr "$(mac_of "" "${IF_SRV}")" \
+        dev "${IF_WAN_SRV}" nud permanent
+    ip neigh replace "${IP_WAN_SRV}" lladdr "$(mac_of "${NS_WAN}" "${IF_WAN_SRV}")" \
+        dev "${IF_SRV}" nud permanent
+}
+
 apply_netem() {
     local dev
     for dev in "${IF_WAN_GW}" "${IF_WAN_SRV}"; do
@@ -153,6 +177,7 @@ cmd_up() {
     ip link set "${IF_SRV}" up
     ip route add "${NET_GW}" via "${IP_WAN_SRV}" dev "${IF_SRV}"
 
+    set_static_neighbours
     apply_netem
     echo "topology up: gateway ${IP_GW} <-> server ${IP_SRV}, delay ${DELAY_MS} ms and loss ${LOSS_PCT} % in each direction"
 }
@@ -179,8 +204,10 @@ cmd_verify() {
     [[ -r ${STATE_FILE} ]] && source <(grep -E '^(delay_ms|loss_pct)=[0-9.]+$' "${STATE_FILE}")
 
     local count=20 out avg
-    # The deadline lets ping finish when the delay is large or packets are lost.
-    out="$(ip netns exec "${NS_GW}" ping -n -q -c "${count}" -i 0.2 -W 5 "${IP_SRV}" 2>&1)" || true
+    # One packet first, not measured: it fills the route caches.
+    ip netns exec "${NS_GW}" ping -n -q -c 1 -W 25 "${IP_SRV}" >/dev/null 2>&1 || true
+    # The timeout lets ping finish when the delay is large or packets are lost.
+    out="$(ip netns exec "${NS_GW}" ping -n -q -c "${count}" -i 0.2 -W 25 "${IP_SRV}" 2>&1)" || true
     echo "${out}" | tail -n 2
     avg="$(echo "${out}" | awk -F'/' '/^(rtt|round-trip)/ { print $5 }')"
     [[ -n ${avg} ]] || die "no ping reply from ${IP_SRV}"
@@ -210,6 +237,10 @@ cmd_status() {
     ip -n "${NS_WAN}" -4 -brief addr show
     echo "--- root namespace"
     ip -4 -brief addr show dev "${IF_SRV}"
+    echo "--- neighbour entries (all must be PERMANENT)"
+    ip -n "${NS_GW}" -4 neigh show
+    ip -n "${NS_WAN}" -4 neigh show
+    ip -4 neigh show dev "${IF_SRV}"
     echo "--- netem (check that 'dropped' stays at 0 when loss is 0)"
     ip netns exec "${NS_WAN}" tc -s qdisc show dev "${IF_WAN_GW}"
     ip netns exec "${NS_WAN}" tc -s qdisc show dev "${IF_WAN_SRV}"
