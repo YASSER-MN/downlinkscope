@@ -251,8 +251,17 @@ cmd_exec() {
     topology_exists || die "the topology does not exist. Use 'up' first."
     [[ $# -ge 1 ]] || die "exec needs a command"
     # Run the command as the user who called sudo, not as root.
-    if [[ -n ${SUDO_USER:-} && ${SUDO_USER} != "root" ]]; then
-        exec ip netns exec "${NS_GW}" sudo -u "${SUDO_USER}" -- "$@"
+    # setpriv and not a second sudo: for a directory account in a container,
+    # 'sudo -u' can fail to set the group list ("unable to set runas group
+    # vector"). setpriv does not change the environment, so HOME, USER and
+    # LOGNAME are set here.
+    if [[ -n ${SUDO_UID:-} && -n ${SUDO_GID:-} && ${SUDO_UID} != "0" ]]; then
+        command -v setpriv >/dev/null || die "setpriv is not installed (package util-linux)"
+        local home
+        home="$(getent passwd "${SUDO_UID}" | cut -d: -f6)"
+        exec ip netns exec "${NS_GW}" \
+            setpriv --reuid="${SUDO_UID}" --regid="${SUDO_GID}" --init-groups \
+            env HOME="${home:-/}" USER="${SUDO_USER}" LOGNAME="${SUDO_USER}" "$@"
     fi
     exec ip netns exec "${NS_GW}" "$@"
 }
