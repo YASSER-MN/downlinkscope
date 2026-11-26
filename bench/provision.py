@@ -14,7 +14,7 @@ The script is safe to run again: it reuses the objects and the CSV file
 that exist. Use --dry-run to build and print every request without a
 connection to a server.
 
-Requirements: pip install -r bench/requirements.txt
+Requirements: pip install -r bench/requirements.lock
 """
 
 import argparse

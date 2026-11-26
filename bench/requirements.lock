@@ -1,0 +1,29 @@
+# Exact versions of every Python library of the bench.
+#
+# requirements.txt lists the direct dependencies. This file fixes them and
+# all their dependencies, so that a later installation gets the same set.
+# Recorded on 2026-11-26 with Python 3.13 on Debian 13 (x86_64), after the
+# provisioning passed against ChirpStack 4.20.1.
+#
+# Install:  bench/.venv/bin/pip install -r bench/requirements.lock
+# Update:   install from requirements.txt in a new venv, test the bench,
+#           then write the output of 'pip freeze' here.
+certifi==2026.11.20
+cffi==2.1.1
+charset_normalizer==3.5.3
+chirpstack-api==4.20.0
+cryptography==50.0.2
+google-api-core==2.44.0
+google-auth==2.63.1
+googleapis-common-protos==1.76.0
+grpcio==1.85.4
+idna==3.20
+opentelemetry-api==1.45.2
+proto-plus==1.29.0
+protobuf==7.36.2
+pyasn1==0.6.5
+pyasn1-modules==0.4.2
+pycparser==3.12
+requests==2.34.2
+typing-extensions==4.16.0
+urllib3==2.8.0

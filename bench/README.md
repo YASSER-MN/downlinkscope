@@ -71,7 +71,7 @@ sudo bench/netns.sh exec python3 "$PWD/bench/probe.py" --stat
 
 # 4. Create the bench objects in ChirpStack.
 python3 -m venv bench/.venv
-bench/.venv/bin/pip install -r bench/requirements.txt
+bench/.venv/bin/pip install -r bench/requirements.lock
 bench/bench.sh apikey
 bench/.venv/bin/python bench/provision.py --devices 1
 ```
