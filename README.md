@@ -17,6 +17,7 @@ Academic project, course "Administration réseau", M2 GLIA, ISIMA
 | Milestone | Content | State |
 |---|---|---|
 | v0.1 | Project skeleton, build, tests, CI, `tmst` counter arithmetic | done |
+| v0.2 | Test bench: network namespaces with `netem`, ChirpStack v4, provisioning | done |
 | J1 | Simulated gateway and devices accepted by ChirpStack, first downlink | planned |
 | J2 | Capture, decoding, linking, timing margin, CSV export, validation | planned |
 | J3 | Experiments with `tc netem` and report | planned |
@@ -25,11 +26,11 @@ Academic project, course "Administration réseau", M2 GLIA, ISIMA
 
 Linux (tested on Debian 13), a C11 compiler, GNU Make, `pkg-config`,
 `libpcap-dev` and `libssl-dev`. For `make lint`: `clang-format`,
-`clang-tidy` and `cppcheck`.
+`clang-tidy`, `cppcheck` and `shellcheck`.
 
 ```sh
 sudo apt install build-essential pkg-config libpcap-dev libssl-dev \
-  clang clang-tidy clang-format cppcheck
+  clang clang-tidy clang-format cppcheck shellcheck
 ```
 
 ## Build and test
@@ -48,6 +49,7 @@ make help       # list all targets
 src/            tool sources
 include/dls/    public headers
 tests/unit/     unit tests (Unity)
+bench/          test bench: network, ChirpStack, provisioning (bench/README.md)
 third_party/    vendored code, each folder with its licence and version
 .github/        continuous integration
 ```
@@ -55,4 +57,5 @@ third_party/    vendored code, each folder with its licence and version
 ## Licence
 
 MIT, see `LICENSE`. Third-party code keeps its own licence: Unity (MIT),
-see `third_party/unity/`.
+see `third_party/unity/`. ChirpStack Docker files (MIT), see
+`bench/chirpstack/UPSTREAM.md`.
