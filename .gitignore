@@ -20,3 +20,8 @@ compile_commands.json
 # Python
 __pycache__/
 .venv/
+
+# Test bench secrets and generated files
+/bench/chirpstack/.env
+/bench/.api_key
+/bench/devices.csv

@@ -1,5 +1,5 @@
 # DownlinkScope build file.
-# Targets: all, test, asan, lint, format, compdb, clean, help.
+# Targets: all, test, asan, lint, format, compdb, bench-up, bench-down, clean, help.
 
 CC      ?= cc
 BUILD   := build
@@ -36,7 +36,7 @@ UNITY_CFLAGS := $(CSTD) -O1 -g -Wall
 
 LINT_SRC := $(wildcard src/*.c include/dls/*.h tests/unit/*.c)
 
-.PHONY: all test asan lint format compdb clean help
+.PHONY: all test asan lint format compdb bench-up bench-down clean help
 
 all: $(TARGET)
 
@@ -65,6 +65,8 @@ lint:
 	cppcheck --quiet --error-exitcode=1 --enable=warning,style,performance,portability \
 	  --std=c11 --inline-suppr -Iinclude src include tests/unit
 	clang-tidy --quiet $(filter %.c,$(LINT_SRC)) -- $(CPPFLAGS) -I$(UNITY_DIR) $(CSTD) $(PKG_CFLAGS)
+	shellcheck bench/*.sh
+	python3 -m py_compile bench/*.py
 
 format:
 	clang-format -i $(LINT_SRC)
@@ -73,6 +75,16 @@ format:
 compdb:
 	$(MAKE) clean
 	bear -- $(MAKE) all $(TEST_BIN)
+
+# Test bench: network namespaces with netem, then ChirpStack in Docker.
+# See bench/README.md. The network commands need root rights.
+bench-up:
+	sudo bench/netns.sh up
+	bench/bench.sh up
+
+bench-down:
+	-bench/bench.sh down
+	sudo bench/netns.sh down
 
 $(BUILD)/obj $(BUILD)/tests:
 	mkdir -p $@
@@ -87,5 +99,7 @@ help:
 	@echo "make lint    clang-format check, cppcheck, clang-tidy"
 	@echo "make format  format the sources in place"
 	@echo "make compdb  write compile_commands.json for the IDE"
+	@echo "make bench-up    start the test bench (see bench/README.md)"
+	@echo "make bench-down  stop the test bench"
 
 -include $(wildcard $(BUILD)/obj/*.d)
