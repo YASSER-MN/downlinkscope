@@ -1,0 +1,51 @@
+# ChirpStack configuration of the DownlinkScope test bench.
+#
+# Based on configuration/chirpstack/chirpstack.toml of chirpstack-docker
+# (MIT licence, see ../../LICENSE.chirpstack-docker and ../../UPSTREAM.md).
+# Changes: one region only, API secret from the environment, and the two
+# downlink timing parameters written explicitly.
+
+[logging]
+  level="info"
+
+[postgresql]
+  dsn="postgres://chirpstack:chirpstack@$POSTGRESQL_HOST/chirpstack?sslmode=disable"
+  max_open_connections=10
+  min_idle_connections=0
+
+[redis]
+  servers=[
+    "redis://$REDIS_HOST/",
+  ]
+  tls_enabled=false
+  cluster=false
+
+[network]
+  net_id="000000"
+
+  # The bench uses the EU868 region only.
+  enabled_regions=[
+    "eu868",
+  ]
+
+  # Experiment parameters. The values below are the ChirpStack defaults.
+  # They are written here because they are a part of the server processing
+  # time p of the timing model (2d + p + m <= R).
+  #
+  # Time that ChirpStack waits to collect the same uplink from other gateways.
+  deduplication_delay="200ms"
+  # Time between the forward of the uplink to the integrations and the read
+  # of the downlink queue.
+  get_downlink_data_delay="100ms"
+
+[api]
+  bind="0.0.0.0:8080"
+  # Random value from the file .env, which is not in the repository.
+  secret="$CHIRPSTACK_API_SECRET"
+
+[integration]
+  enabled=["mqtt"]
+
+  [integration.mqtt]
+    server="tcp://$MQTT_BROKER_HOST:1883/"
+    json=true
