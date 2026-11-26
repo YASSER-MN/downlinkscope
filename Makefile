@@ -14,8 +14,11 @@ WARN    := -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion \
 HARDEN  := -D_FORTIFY_SOURCE=2 -fstack-protector-strong
 CSTD    := -std=c11 -D_DEFAULT_SOURCE
 CPPFLAGS += -Iinclude
-CFLAGS  ?= -O2
-CFLAGS  += $(CSTD) $(WARN) $(PKG_CFLAGS)
+# OPT holds optimisation and instrumentation flags. The sanitizer build
+# overrides only OPT, so the standard and warning flags always stay active.
+OPT     ?= -O2
+CFLAGS  ?=
+ALL_CFLAGS := $(OPT) $(CSTD) $(WARN) $(PKG_CFLAGS) $(CFLAGS)
 
 SAN     := -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all
 
@@ -38,16 +41,16 @@ LINT_SRC := $(wildcard src/*.c include/dls/*.h tests/unit/*.c)
 all: $(TARGET)
 
 $(TARGET): $(BUILD)/obj/main.o $(LIB_OBJ)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(PKG_LIBS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $^ $(PKG_LIBS)
 
 $(BUILD)/obj/%.o: src/%.c | $(BUILD)/obj
-	$(CC) $(CPPFLAGS) $(HARDEN) $(CFLAGS) -MMD -MP -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(HARDEN) $(ALL_CFLAGS) -MMD -MP -c -o $@ $<
 
 $(UNITY_OBJ): $(UNITY_DIR)/unity.c | $(BUILD)/obj
 	$(CC) $(UNITY_CFLAGS) -c -o $@ $<
 
 $(BUILD)/tests/test_%: tests/unit/test_%.c $(LIB_OBJ) $(UNITY_OBJ) | $(BUILD)/tests
-	$(CC) $(CPPFLAGS) -I$(UNITY_DIR) $(CFLAGS) -o $@ $^ $(PKG_LIBS)
+	$(CC) $(CPPFLAGS) -I$(UNITY_DIR) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $^ $(PKG_LIBS)
 
 test: $(TEST_BIN)
 	@set -e; for t in $(TEST_BIN); do echo "== $$t"; $$t; done
@@ -55,7 +58,7 @@ test: $(TEST_BIN)
 # Rebuild everything with AddressSanitizer and UndefinedBehaviorSanitizer, then run the tests.
 asan:
 	$(MAKE) clean
-	$(MAKE) test CFLAGS="$(SAN)" LDFLAGS="-fsanitize=address,undefined" HARDEN=""
+	$(MAKE) test OPT="$(SAN)" LDFLAGS="-fsanitize=address,undefined" HARDEN=""
 
 lint:
 	clang-format --dry-run --Werror $(LINT_SRC)
