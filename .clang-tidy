@@ -1,0 +1,22 @@
+---
+# Disabled checks and reasons:
+# - bugprone-easily-swappable-parameters: too noisy for (later, earlier) pairs.
+# - misc-include-cleaner: false positives with libpcap umbrella headers.
+# - cert-err33-c: printf return values are not checked for console output.
+# - clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling:
+#   asks for C11 Annex K functions (fprintf_s), which glibc does not provide.
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  misc-*,
+  portability-*,
+  readability-braces-around-statements,
+  readability-misleading-indentation,
+  -bugprone-easily-swappable-parameters,
+  -misc-include-cleaner,
+  -cert-err33-c,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'include/dls/.*'

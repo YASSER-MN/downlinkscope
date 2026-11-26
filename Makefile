@@ -1,0 +1,88 @@
+# DownlinkScope build file.
+# Targets: all, test, asan, lint, format, compdb, clean, help.
+
+CC      ?= cc
+BUILD   := build
+TARGET  := $(BUILD)/downlinkscope
+
+PKGS    := libpcap libcrypto
+PKG_CFLAGS := $(shell pkg-config --cflags $(PKGS))
+PKG_LIBS   := $(shell pkg-config --libs $(PKGS))
+
+WARN    := -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion \
+           -Wformat=2 -Wstrict-prototypes -Wmissing-prototypes -Werror
+HARDEN  := -D_FORTIFY_SOURCE=2 -fstack-protector-strong
+CSTD    := -std=c11 -D_DEFAULT_SOURCE
+CPPFLAGS += -Iinclude
+CFLAGS  ?= -O2
+CFLAGS  += $(CSTD) $(WARN) $(PKG_CFLAGS)
+
+SAN     := -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all
+
+# Library sources: everything in src/ except the program entry point.
+LIB_SRC := $(filter-out src/main.c,$(wildcard src/*.c))
+LIB_OBJ := $(LIB_SRC:src/%.c=$(BUILD)/obj/%.o)
+
+TEST_SRC := $(wildcard tests/unit/test_*.c)
+TEST_BIN := $(TEST_SRC:tests/unit/%.c=$(BUILD)/tests/%)
+
+UNITY_DIR := third_party/unity
+UNITY_OBJ := $(BUILD)/obj/unity.o
+# Third-party code: warnings shown, but never treated as errors.
+UNITY_CFLAGS := $(CSTD) -O1 -g -Wall
+
+LINT_SRC := $(wildcard src/*.c include/dls/*.h tests/unit/*.c)
+
+.PHONY: all test asan lint format compdb clean help
+
+all: $(TARGET)
+
+$(TARGET): $(BUILD)/obj/main.o $(LIB_OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(PKG_LIBS)
+
+$(BUILD)/obj/%.o: src/%.c | $(BUILD)/obj
+	$(CC) $(CPPFLAGS) $(HARDEN) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(UNITY_OBJ): $(UNITY_DIR)/unity.c | $(BUILD)/obj
+	$(CC) $(UNITY_CFLAGS) -c -o $@ $<
+
+$(BUILD)/tests/test_%: tests/unit/test_%.c $(LIB_OBJ) $(UNITY_OBJ) | $(BUILD)/tests
+	$(CC) $(CPPFLAGS) -I$(UNITY_DIR) $(CFLAGS) -o $@ $^ $(PKG_LIBS)
+
+test: $(TEST_BIN)
+	@set -e; for t in $(TEST_BIN); do echo "== $$t"; $$t; done
+
+# Rebuild everything with AddressSanitizer and UndefinedBehaviorSanitizer, then run the tests.
+asan:
+	$(MAKE) clean
+	$(MAKE) test CFLAGS="$(SAN)" LDFLAGS="-fsanitize=address,undefined" HARDEN=""
+
+lint:
+	clang-format --dry-run --Werror $(LINT_SRC)
+	cppcheck --quiet --error-exitcode=1 --enable=warning,style,performance,portability \
+	  --std=c11 --inline-suppr -Iinclude src include tests/unit
+	clang-tidy --quiet $(filter %.c,$(LINT_SRC)) -- $(CPPFLAGS) -I$(UNITY_DIR) $(CSTD) $(PKG_CFLAGS)
+
+format:
+	clang-format -i $(LINT_SRC)
+
+# compile_commands.json for CLion code analysis.
+compdb:
+	$(MAKE) clean
+	bear -- $(MAKE) all $(TEST_BIN)
+
+$(BUILD)/obj $(BUILD)/tests:
+	mkdir -p $@
+
+clean:
+	rm -rf $(BUILD)
+
+help:
+	@echo "make         build $(TARGET)"
+	@echo "make test    build and run the unit tests"
+	@echo "make asan    run the unit tests with sanitizers"
+	@echo "make lint    clang-format check, cppcheck, clang-tidy"
+	@echo "make format  format the sources in place"
+	@echo "make compdb  write compile_commands.json for the IDE"
+
+-include $(wildcard $(BUILD)/obj/*.d)
