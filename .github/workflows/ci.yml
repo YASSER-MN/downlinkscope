@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libpcap-dev libssl-dev \
+            clang clang-tidy clang-format cppcheck
+
+      - name: Build
+        run: make all
+
+      - name: Unit tests
+        run: make test
+
+      - name: Unit tests with sanitizers
+        run: make asan
+
+      - name: Lint
+        run: make lint
