@@ -1,0 +1,22 @@
+# Build output
+/build/
+*.o
+*.d
+compile_commands.json
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+
+# Claude Code personal settings
+.claude/settings.local.json
+
+# Experiment output (raw captures are published only through releases)
+/results/**/raw/
+*.pcap
+*.pcapng
+
+# Python
+__pycache__/
+.venv/
