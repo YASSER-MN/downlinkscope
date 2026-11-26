@@ -8,7 +8,10 @@
 #   - no Basics Station bridge and no REST API (not used by the bench);
 #   - UDP 1700 is published only on the address of the bench network;
 #   - the web interface and MQTT are published only on 127.0.0.1;
-#   - no automatic restart, so nothing starts again without a command.
+#   - no automatic restart, so nothing starts again without a command;
+#   - health checks on PostgreSQL and Redis. ChirpStack stops if the database
+#     is not ready, and the upstream file hides this with an automatic
+#     restart. Here ChirpStack starts only when the two services are ready.
 #
 # Start this file with bench/bench.sh, not directly: the script creates the
 # file .env and checks that the bench network exists.
@@ -23,9 +26,12 @@ services:
     volumes:
       - ./configuration/chirpstack:/etc/chirpstack:ro
     depends_on:
-      - postgres
-      - mosquitto
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
     environment:
       - MQTT_BROKER_HOST=mosquitto
       - REDIS_HOST=redis
@@ -58,6 +64,13 @@ services:
       - POSTGRES_USER=chirpstack
       - POSTGRES_PASSWORD=chirpstack
       - POSTGRES_DB=chirpstack
+    # TCP on purpose: during the first initialisation PostgreSQL listens only
+    # on its Unix socket, so this check passes only when the init is complete.
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "chirpstack", "-d", "chirpstack"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   redis:
     image: redis:7-alpine
@@ -65,6 +78,11 @@ services:
     command: redis-server --save 300 1 --save 60 100 --appendonly no
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   mosquitto:
     image: eclipse-mosquitto:2
