@@ -64,6 +64,12 @@ cmd_up() {
             echo "web interface: ${UI_URL} (default login admin / admin, change the password)"
             return 0
         fi
+        # Without automatic restart, a stopped container does not come back.
+        if [[ -n "$(compose ps --status exited --quiet chirpstack)" ]]; then
+            echo
+            compose logs --tail 20 chirpstack >&2
+            die "the ChirpStack container stopped. Its last log lines are above."
+        fi
         echo -n "."
         sleep 1
     done
